@@ -18,9 +18,10 @@ trait BatchJob {
 
   def readAntennaMetadata(jdbcURI: String, jdbcTable: String, user: String, password: String): DataFrame
 
-  def enrichAntennaWithMetadata(antennaDF: DataFrame, metadataDF: DataFrame): DataFrame
+  def enrichAntennaWithMetadata(antennaStreamingDF: DataFrame, metadataDF: DataFrame): DataFrame
 
-  def computeDevicesCountByCoordinates(dataFrame: DataFrame): DataFrame
+  def computeBytesCountByANT(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit
+  //def computeDevicesCountByCoordinates(dataFrame: DataFrame): DataFrame
 
   def computeErrorAntennaByModelAndVersion(dataFrame: DataFrame): DataFrame
 
