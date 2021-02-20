@@ -1,5 +1,5 @@
 package io.keepcoding.spark.exercise.batch
-import io.keepcoding.spark.exercise.streaming.StreamingEntregaImplementacion.spark
+import io.keepcoding.spark.exercise.streaming.StreamingEntregaImplementacion.{enrichAntennaWithMetadata, readAntennaMetadata, spark}
 import org.apache.spark.sql.functions.{lit, sum, window}
 import org.apache.spark.sql.types.TimestampType
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
@@ -47,36 +47,86 @@ object batchJobImpl extends BatchJob {
       ).drop(userMetadataDF("id"))
   }
 
-  //override def computeDevicesCountByCoordinates(dataFrame: DataFrame): DataFrame = ???
-  def computeBytesCountByANT(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Future[Unit] = Future {
-
+   def computeBytesCountByANT(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit = {
     dataFrame
       .select($"timestamp".cast(TimestampType), $"antenna_id", $"bytes")
-
-      .groupBy(window($"timestamp", "5 minutes").as("timestamp"), $"antenna_id".as("id"))
+      .groupBy(window($"timestamp", "1 hour").as("timestamp"), $"antenna_id".as("id"))
       .agg(sum($"bytes").as("value"))
       .withColumn("type", lit("antenna_total_bytes"))
       .withColumn("timestamp", $"timestamp.start")
       .select($"timestamp", $"id", $"value", $"type")
-      .writeStream
-      .foreachBatch { (df: DataFrame, id: Long) =>
-        df
-          .write
-          .mode(SaveMode.Append)
-          .format("jdbc")
-          .option("driver", "org.postgresql.Driver")
-          .option("url", jdbcURI)
-          .option("dbtable", jdbcTable)
-          .option("user", user)
-          .option("password", password)
-          .save()
-      }.start()
-      .awaitTermination()
+      .write
+      .mode(SaveMode.Append)
+      .format("jdbc")
+      .option("driver", "org.postgresql.Driver")
+      .option("url", jdbcURI)
+      .option("dbtable", jdbcTable)
+      .option("user", user)
+      .option("password", password)
+      .save()
+      }
+  override def computeBytesCountByAPP(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit = {
+    dataFrame
+      .select($"timestamp".cast(TimestampType), $"app", $"bytes")
+      .groupBy(window($"timestamp", "1 hour").as("timestamp"), $"app".as("id"))
+      .agg(sum($"bytes").as("value"))
+      .withColumn("type", lit("app_total_bytes"))
+      .withColumn("timestamp", $"timestamp.start")
+      .select($"timestamp", $"id", $"value", $"type")
+      .write
+      .mode(SaveMode.Append)
+      .format("jdbc")
+      .option("driver", "org.postgresql.Driver")
+      .option("url", jdbcURI)
+      .option("dbtable", jdbcTable)
+      .option("user", user)
+      .option("password", password)
+      .save()
+  }
+  def computeBytesCountByUSER(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String):Unit = {
+    dataFrame
+      .select($"timestamp".cast(TimestampType), $"id", $"bytes")
+      .groupBy(window($"timestamp", "1 hour").as("timestamp"), $"id")
+      .agg(sum($"bytes").as("value"))
+      .withColumn("type", lit("user_total_bytes"))
+      .withColumn("timestamp", $"timestamp.start")
+      .select($"timestamp", $"id", $"value", $"type")
+      .write
+      .mode(SaveMode.Append)
+      .format("jdbc")
+      .option("driver", "org.postgresql.Driver")
+      .option("url", jdbcURI)
+      .option("dbtable", jdbcTable)
+      .option("user", user)
+      .option("password", password)
+      .save()
+  }
+  def computeBytesCountByMAIL(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit = {
+    dataFrame
+      .select($"email", $"bytes", $"quota",$"timestamp".cast(TimestampType))
+      .groupBy(window($"timestamp", "1 hour").as("timestamp"), $"email",$"quota")
+      .agg(sum($"bytes").as("usage"))
+      .withColumn("timestamp", $"timestamp.start")
+      .select($"email",$"usage",$"quota",$"timestamp")
+      .write
+      .mode(SaveMode.Append)
+      .format("jdbc")
+      .option("driver", "org.postgresql.Driver")
+      .option("url", jdbcURI)
+      .option("dbtable", jdbcTable)
+      .option("user", user)
+      .option("password", password)
+      .save()
   }
 
-  override def computeErrorAntennaByModelAndVersion(dataFrame: DataFrame): DataFrame = ???
-
-  override def computePercentStatusByID(dataFrame: DataFrame): DataFrame = ???
+ override def computeQuotaByMAIL(dataFrame: DataFrame): DataFrame = {
+    dataFrame
+      .select($"email",$"usage",$"quota")
+      .groupBy($"email")
+      .agg(sum($"usage").as("usage"))
+      .where($"usage"> lit("quota"))
+      .select($"email",$"usage",$"quota")
+    }
 
   override def writeToJdbc(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit = ???
 
@@ -84,8 +134,20 @@ object batchJobImpl extends BatchJob {
 
   //def main (args: Array[String]): Unit = run(args)
   def main (args: Array[String]): Unit = {
-  val argsTime = "2021-02-19T21:00:00Z"
-readFromStorage("C:\\Users\\evaes\\Documents\\GitHub\\Entrega_data_processing_eva\\exerciseEva\\src\\main\\resources\\practica\\data", OffsetDateTime.parse(argsTime))
-  .show()
+  val argsTime = "2021-02-19T22:00:00Z"
+
+    val antennaDF= readFromStorage("C:\\Users\\evaes\\Documents\\GitHub\\Entrega_data_processing_eva\\exerciseEva\\src\\main\\resources\\practica\\data", OffsetDateTime.parse(argsTime))
+    val userMetadataDF = readAntennaMetadata("jdbc:postgresql://34.76.48.93:5432/postgres", "user_metadata", "postgres", "keepcoding")
+    val antennaMetadataDF = enrichAntennaWithMetadata(antennaDF,userMetadataDF).cache()
+
+    computeBytesCountByANT(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
+    computeBytesCountByAPP(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
+    computeBytesCountByUSER(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
+    val aggByMAILDF: Unit = computeBytesCountByMAIL(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "user_quota_limit", "postgres", "keepcoding")
+    val UserOverQuota = computeQuotaByMAIL(aggByMAILDF)
+
+    //val aggPercentStatusDF = computePercentStatusByID(antennaMetadataDF)
+    //val aggErroAntennaDF = computeErrorAntennaByModelAndVersion(antennaMetadataDF)
+     // .show()
   }
 }

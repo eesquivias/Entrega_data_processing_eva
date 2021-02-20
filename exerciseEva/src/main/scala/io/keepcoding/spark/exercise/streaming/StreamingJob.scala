@@ -30,21 +30,21 @@ trait StreamingJob {
 
   def writeToStorage(dataFrame: DataFrame, storageRootPath: String): Future[Unit]
 
-  def run(args: Array[String]): Unit = {
+ /* def run(args: Array[String]): Unit = {
     val Array(kafkaServer, topic, jdbcUri, jdbcMetadataTable, aggJdbcTable, jdbcUser, jdbcPassword, storagePath) = args
     println(s"Running with: ${args.toSeq}")
 
     val kafkaDF = readFromKafka(kafkaServer, topic)
-    //val antennaStreamingDF = parserJsonData(kafkaDF)
-    //val userMetadataDF = readAntennaMetadata(jdbcUri, jdbcMetadataTable, jdbcUser, jdbcPassword)
-    //val antennaMetadataDF = enrichAntennaWithMetadata(antennaStreamingDF , userMetadataDF)
-    //val storageFuture = writeToStorage(antennaMetadataDF, storagePath)
+    val antennaStreamingDF = parserJsonData(kafkaDF)
+    val userMetadataDF = readAntennaMetadata(jdbcUri, jdbcMetadataTable, jdbcUser, jdbcPassword)
+    val antennaMetadataDF = enrichAntennaWithMetadata(antennaStreamingDF , userMetadataDF)
+    val storageFuture = writeToStorage(antennaMetadataDF, storagePath)
     //val aggByTypeDF = computeBytesCountByID (antennaMetadataDF)
     //val aggFuture = writeToJdbc(aggByTypeDF, jdbcUri, aggJdbcTable, jdbcUser, jdbcPassword)
 
-    //Await.result(Future.sequence(Seq(aggFuture, storageFuture)), Duration.Inf)
+    Await.result(Future.sequence(Seq(aggFuture, storageFuture)), Duration.Inf)
 
     spark.close()
-  }
+  }*/
 
 }

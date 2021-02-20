@@ -23,10 +23,9 @@ object StreamingEntregaImplementacion extends StreamingJob {
     spark
       .readStream
       .format ("kafka")
-      .option("kafka.bootstrap.servers", kafkaServer) //"34.77.160.106:9092" en vez de kafkaServer
-      //.option("kafka.bootstrap.servers", "34.77.160.106:9092")
-      .option("subscribe", topic) //"devices" en vez de topic
-      //.option("subscribe", "devices")
+      .option("kafka.bootstrap.servers", kafkaServer)
+      .option("subscribe", topic)
+      .option("failOnDataLoss",false)
       .load()
 
   override def parserJsonData(dataFrame: DataFrame): DataFrame = {
@@ -145,16 +144,16 @@ object StreamingEntregaImplementacion extends StreamingJob {
   }
 
  def main(args: Array[String]): Unit = {
-   val userMetadataDF = readAntennaMetadata("jdbc:postgresql://34.76.48.93:5432/postgres", "user_metadata", "postgres", "keepcoding")
-   val antennaStreamingDF = parserJsonData(readFromKafka("34.77.160.106:9092", "devices"))
-   val storageFuture = writeToStorage(antennaStreamingDF, "C:\\Users\\evaes\\Documents\\GitHub\\Entrega_data_processing_eva\\exerciseEva\\src\\main\\resources\\practica")
-   val antennaMetadataDF = enrichAntennaWithMetadata(antennaStreamingDF,userMetadataDF)
+  val userMetadataDF = readAntennaMetadata("jdbc:postgresql://34.76.48.93:5432/postgres", "user_metadata", "postgres", "keepcoding")
+  val antennaStreamingDF = parserJsonData(readFromKafka("35.195.109.245:9092", "devices"))
+  val storageFuture = writeToStorage(antennaStreamingDF, "C:\\Users\\evaes\\Documents\\GitHub\\Entrega_data_processing_eva\\exerciseEva\\src\\main\\resources\\practica")
+  val antennaMetadataDF = enrichAntennaWithMetadata(antennaStreamingDF,userMetadataDF)
   val aggByAPPDFfut= computeBytesCountByAPP(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes", "postgres", "keepcoding")
-   val aggByANTDFfut= computeBytesCountByANT(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes", "postgres", "keepcoding")
-   val aggByUSERDFfut= computeBytesCountByUSER(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes", "postgres", "keepcoding")
-   Await.result(Future.sequence(Seq(aggByAPPDFfut,aggByANTDFfut,aggByUSERDFfut,storageFuture)), Duration.Inf)
+  val aggByANTDFfut= computeBytesCountByANT(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes", "postgres", "keepcoding")
+  val aggByUSERDFfut= computeBytesCountByUSER(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes", "postgres", "keepcoding")
+  Await.result(Future.sequence(Seq(aggByAPPDFfut,aggByANTDFfut,aggByUSERDFfut,storageFuture)), Duration.Inf)
 
-   // Await.result(storageFuture, Duration.Inf)
+    //Await.result(storageFuture, Duration.Inf)
  }
 
 
