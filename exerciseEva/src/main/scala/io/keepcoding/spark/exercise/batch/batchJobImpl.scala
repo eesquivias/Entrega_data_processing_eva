@@ -1,11 +1,9 @@
 package io.keepcoding.spark.exercise.batch
-import io.keepcoding.spark.exercise.streaming.StreamingEntregaImplementacion.{enrichAntennaWithMetadata, readAntennaMetadata, spark}
 import org.apache.spark.sql.functions.{lit, sum, window}
 import org.apache.spark.sql.types.TimestampType
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 import java.time.OffsetDateTime
-import scala.concurrent.Future
 
 object batchJobImpl extends BatchJob {
   override val spark: SparkSession =
@@ -101,11 +99,12 @@ object batchJobImpl extends BatchJob {
       .option("password", password)
       .save()
   }
-  def computeBytesCountByMAIL(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit = {
+  def computeQuotaByMAIL(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit = {
     dataFrame
       .select($"email", $"bytes", $"quota",$"timestamp".cast(TimestampType))
-      .groupBy(window($"timestamp", "1 hour").as("timestamp"), $"email",$"quota")
+      .groupBy($"email",$"quota",window($"timestamp", "1 hour").as("timestamp"))
       .agg(sum($"bytes").as("usage"))
+      .filter($"usage"> $"quota")
       .withColumn("timestamp", $"timestamp.start")
       .select($"email",$"usage",$"quota",$"timestamp")
       .write
@@ -119,35 +118,28 @@ object batchJobImpl extends BatchJob {
       .save()
   }
 
- override def computeQuotaByMAIL(dataFrame: DataFrame): DataFrame = {
-    dataFrame
-      .select($"email",$"usage",$"quota")
-      .groupBy($"email")
-      .agg(sum($"usage").as("usage"))
-      .where($"usage"> lit("quota"))
-      .select($"email",$"usage",$"quota")
-    }
+ override def writeToStorage(dataFrame: DataFrame, storageRootPath: String): Unit = {
+   dataFrame
+     .write
+     .partitionBy("year", "month", "day", "hour")
+     .format("parquet")
+     .mode(SaveMode.Overwrite)
+     .save(s"$storageRootPath\\historical")
+ }
 
-  override def writeToJdbc(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit = ???
-
-  override def writeToStorage(dataFrame: DataFrame, storageRootPath: String): Unit = ???
-
-  //def main (args: Array[String]): Unit = run(args)
   def main (args: Array[String]): Unit = {
-  val argsTime = "2021-02-19T22:00:00Z"
+  val argsTime = "2021-02-20T21:00:00Z"
 
     val antennaDF= readFromStorage("C:\\Users\\evaes\\Documents\\GitHub\\Entrega_data_processing_eva\\exerciseEva\\src\\main\\resources\\practica\\data", OffsetDateTime.parse(argsTime))
     val userMetadataDF = readAntennaMetadata("jdbc:postgresql://34.76.48.93:5432/postgres", "user_metadata", "postgres", "keepcoding")
     val antennaMetadataDF = enrichAntennaWithMetadata(antennaDF,userMetadataDF).cache()
 
-    computeBytesCountByANT(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
-    computeBytesCountByAPP(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
-    computeBytesCountByUSER(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
-    val aggByMAILDF: Unit = computeBytesCountByMAIL(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "user_quota_limit", "postgres", "keepcoding")
-    val UserOverQuota = computeQuotaByMAIL(aggByMAILDF)
+    val aggByANTDF: Unit =  computeBytesCountByANT(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
+    val aggByAPPDF: Unit= computeBytesCountByAPP(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
+    val aggByUSERDF: Unit = computeBytesCountByUSER(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
+    val UserOverQuota: Unit = computeQuotaByMAIL(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "user_quota_limit", "postgres", "keepcoding")
+    writeToStorage(antennaDF, "C:\\Users\\evaes\\Documents\\GitHub\\Entrega_data_processing_eva\\exerciseEva\\src\\main\\resources\\practica")
 
-    //val aggPercentStatusDF = computePercentStatusByID(antennaMetadataDF)
-    //val aggErroAntennaDF = computeErrorAntennaByModelAndVersion(antennaMetadataDF)
-     // .show()
+
   }
 }

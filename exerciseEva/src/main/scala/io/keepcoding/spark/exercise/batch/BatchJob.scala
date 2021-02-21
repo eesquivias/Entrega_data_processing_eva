@@ -1,12 +1,12 @@
 package io.keepcoding.spark.exercise.batch
 
-import io.keepcoding.spark.exercise.batch.batchJobImpl.{computeBytesCountByANT, computeBytesCountByAPP, computeBytesCountByMAIL, computeBytesCountByUSER}
+import io.keepcoding.spark.exercise.batch.batchJobImpl.{computeBytesCountByANT, computeBytesCountByAPP, computeBytesCountByUSER}
 
 import java.sql.Timestamp
 import java.time.OffsetDateTime
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
+
+
+
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 case class AntennaMessage(year: Int, month: Int, day: Int, hour: Int, timestamp: Timestamp, app: String, id: String, antenna_id: String, bytes: Long)
@@ -26,13 +26,13 @@ trait BatchJob {
 
   def computeBytesCountByAPP(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit
 
-  def computeBytesCountByMAIL(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit
+  //def computeBytesCountByMAIL(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit
 
-  def computeErrorAntennaByModelAndVersion(dataFrame: DataFrame): DataFrame
+  //def computeErrorAntennaByModelAndVersion(dataFrame: DataFrame): DataFrame
 
-  def computeQuotaByMAIL(dataFrame: DataFrame): DataFrame
+  def computeQuotaByMAIL(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit
 
-  def writeToJdbc(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit
+  //def writeToJdbc(dataFrame: DataFrame, jdbcURI: String, jdbcTable: String, user: String, password: String): Unit
 
   def writeToStorage(dataFrame: DataFrame, storageRootPath: String): Unit
 
@@ -49,7 +49,7 @@ trait BatchJob {
 
     val aggByAPPDF: Unit = computeBytesCountByAPP(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
     val aggByUSERDF: Unit = computeBytesCountByUSER(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "bytes_hourly", "postgres", "keepcoding")
-    val aggByMAILDF: Unit = computeBytesCountByMAIL(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "user_quota_limit", "postgres", "keepcoding")
+   //val aggByMAILDF: Unit = computeBytesCountByMAIL(antennaMetadataDF,"jdbc:postgresql://34.76.48.93:5432/postgres", "user_quota_limit", "postgres", "keepcoding")
    // writeToJdbc(aggByCoordinatesDF, jdbcUri, aggJdbcTable, jdbcUser, jdbcPassword)
     //writeToJdbc(aggPercentStatusDF, jdbcUri, aggJdbcPercentTable, jdbcUser, jdbcPassword)
     //writeToJdbc(aggErroAntennaDF, jdbcUri, aggJdbcErrorTable, jdbcUser, jdbcPassword)
